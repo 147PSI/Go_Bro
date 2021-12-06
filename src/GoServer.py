@@ -45,4 +45,4 @@ api.add_resource(Play, '/sessions/<string:sessionId>')
 api.add_resource(History, '/all_sessions')
 
 if __name__ == "__main__":
-    app.run(ssl_context='adhoc', host='0.0.0.0', port=443)
+    app.run(host='0.0.0.0', port=443)
