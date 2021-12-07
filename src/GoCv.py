@@ -2,14 +2,16 @@ import cv2
 import numpy as np
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
+import time
+import os
 
 
 def order_points(pts):
     rect = np.zeros((4, 2), dtype="float32")
-    rect[0] = pts[0]
-    rect[1] = pts[2]
-    rect[2] = pts[1]
-    rect[3] = pts[3]
+    rect[0] = pts[2]
+    rect[1] = pts[3]
+    rect[2] = pts[0]
+    rect[3] = pts[1]
     return rect
 
 
@@ -35,6 +37,17 @@ def intersection(line1, line2):
     return [x0, y0]
 
 
+def capture_image():
+    cap = cv2.VideoCapture(0)
+    ret, frame = cap.read()
+
+    time.sleep(0.5)
+    cv2.imwrite('c1.png', frame)
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
 class GoCv:
 
     def __init__(self, base_image_addr):
@@ -46,12 +59,16 @@ class GoCv:
         img = self.base_image
 
         # *********************
-        # show_in_notebook(img)
+        show_in_notebook(img)
         # *********************
 
         green_low = np.array([0, 220, 0])
         green_high = np.array([10, 255, 10])
-        mask = cv2.inRange(img, green_low, green_high)
+
+        blue_low = np.array([180, 0, 0])
+        blue_high = np.array([255, 110, 110])
+
+        mask = cv2.inRange(img, blue_low, blue_high)
 
         coord = cv2.findNonZero(mask)
         coord_xy = [[dot[0][0], dot[0][1]] for dot in coord]
@@ -85,7 +102,7 @@ class GoCv:
         warped = cv2.warpPerspective(raw_img, M, (maxWidth, maxHeight))
 
         # *********************
-        # show_in_notebook(warped)
+        show_in_notebook(warped)
         # *********************
 
         # return the warped image
@@ -95,13 +112,13 @@ class GoCv:
         newbaseImg = self.four_point_transform(self.base_image)
 
         gray = cv2.cvtColor(newbaseImg, cv2.COLOR_RGB2GRAY)
-        edges = cv2.Canny(gray, 200, 320, apertureSize=3)
+        edges = cv2.Canny(gray, 70, 320, apertureSize=3)
 
         # *********************
-        # show_in_notebook(edges)
+        show_in_notebook(edges)
         # *********************
 
-        lines = cv2.HoughLines(edges, 1, np.pi / 90, 110)
+        lines = cv2.HoughLines(edges, 1, np.pi / 90, 130)
 
         hori = []
         verti = []
@@ -123,12 +140,11 @@ class GoCv:
         coord_array = np.array([[int(x[0]), int(x[1])] for x in kmeans.cluster_centers_])
 
         # *********************
-        # vis6 = newbaseImg.copy()
-        # for center in coord_array:
-        #     vis6 = cv2.circle(vis6, [int(center[0]), int(center[1])], 4, (0, 0, 255), -1)
-        # show_in_notebook(vis6)
+        vis6 = newbaseImg.copy()
+        for center in coord_array:
+            vis6 = cv2.circle(vis6, [int(center[0]), int(center[1])], 4, (0, 0, 255), -1)
+        show_in_notebook(vis6)
         # *********************
-
 
         sorted_cord = coord_array[coord_array[:, 0].argsort()]
         coord_lookup = []
@@ -149,39 +165,39 @@ class GoCv:
         warp_new_base = self.four_point_transform(new_base_img)
 
         # *********************
-        # show_in_notebook(warp_new_base)
+        show_in_notebook(warp_new_base)
         # *********************
 
         step_gray = cv2.cvtColor(warp_new_base, cv2.COLOR_BGR2GRAY)
         step_gray = cv2.medianBlur(step_gray, 5)
 
         # *********************
-        # show_in_notebook(step_gray)
+        show_in_notebook(step_gray)
         # *********************
 
         rows = step_gray.shape[0]
         circles = cv2.HoughCircles(step_gray, cv2.HOUGH_GRADIENT, 1, rows / 19,
                                    param1=80, param2=23,
-                                   minRadius=10, maxRadius=30)
+                                   minRadius=25, maxRadius=40)
         if circles is not None:
             circles = np.uint16(np.around(circles))
         # *********************
-        # vis7 = warp_new_base.copy()
-        # for i in circles[0, :]:
-        #     center = (i[0], i[1])
-        #     # circle center
-        #     cv2.circle(vis7, center, 1, (0, 100, 100), 3)
-        #     # circle outline
-        #     radius = i[2]
-        #     cv2.circle(vis7, center, radius, (255, 0, 255), 3)
-        # show_in_notebook(vis7)
+        vis7 = warp_new_base.copy()
+        for i in circles[0, :]:
+            center = (i[0], i[1])
+            # circle center
+            cv2.circle(vis7, center, 1, (0, 100, 100), 3)
+            # circle outline
+            radius = i[2]
+            cv2.circle(vis7, center, radius, (255, 0, 255), 3)
+        show_in_notebook(vis7)
         # *********************
 
         # *********************
         vis8 = warp_new_base.copy()
         # *********************
 
-        r = 8
+        r = 15
         mean_col = []
         for col in self.lookup_table:
             col_sum = sum(col[:, 0])
@@ -203,18 +219,18 @@ class GoCv:
             col_index = -1
 
             for i in range(len(mean_row)):
-                if abs(row_val - mean_row[i]) <= 15:
+                if abs(row_val - mean_row[i]) <= 20:
                     row_index = i
                     break
             for i in range(len(mean_col)):
-                if abs(col_val - mean_col[i]) <= 15:
+                if abs(col_val - mean_col[i]) <= 20:
                     col_index = i
                     break
 
             roi = vis8[row_val - r: row_val + r, col_val - r: col_val + r]
 
             # *********************
-            # show_in_notebook(roi)
+            show_in_notebook(roi)
             # *********************
 
             width, height = roi.shape[:2]
@@ -231,16 +247,21 @@ class GoCv:
                     color = np.mean(channel[indices])
                     data.append(int(color))
 
-            if sum(data) / len(data) < 50:
+            if sum(data) / len(data) < 100:
                 stone_map[row_index][col_index] = 1
-            elif sum(data) / len(data) > 200:
+            elif sum(data) / len(data) > 160:
                 stone_map[row_index][col_index] = 2
             else:
                 stone_map[row_index][col_index] = 0
 
         return stone_map
 
-if __name__ == "__main__":
-    go = GoCv('../img/board/labeled.png')
 
-    print(go.mapping_image_to_list("../img/board/step2.png"))
+if __name__ == "__main__":
+    capture_image()
+    go = GoCv("c1.png")
+    for i in range(6):
+        print("Capturing step No." + str(i+1) + " ...")
+        # time.sleep(10)
+        capture_image()
+        print(go.mapping_image_to_list("c1.png"))
